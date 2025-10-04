@@ -7,6 +7,7 @@ import (
 	"github.com/lib/pq"
 	"net/http"
 	db "simplebank/db/sqlc"
+	"simplebank/token"
 )
 
 type createAccountRequest struct {
@@ -14,52 +15,60 @@ type createAccountRequest struct {
 	Currency string `json:"currency" binding:"required,currency"`
 }
 
-func (server *Server) createAccount(ctx *gin.Context) {
+func (server *Server) createAccount(c *gin.Context) {
 	var req createAccountRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+	authPayload := c.MustGet(authorizationPayloadKey).(*token.Payload)
 	arg := db.CreateAccountParams{
-		Owner:    req.Owner,
+		Owner:    authPayload.Username,
 		Currency: req.Currency,
 		Balance:  0,
 	}
-	account, err := server.store.CreateAccount(ctx, arg)
+	account, err := server.store.CreateAccount(c, arg)
 	if err != nil {
 		if pgErr, ok := err.(*pq.Error); ok {
 			switch pgErr.Code.Name() {
 			case "foreign_key_violation", "unique_violation":
-				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				c.JSON(http.StatusForbidden, errorResponse(err))
 				return
 			}
 		}
 	}
 
-	ctx.JSON(http.StatusOK, account)
+	c.JSON(http.StatusOK, account)
 }
 
 type getAccountRequest struct {
 	ID int64 `uri:"id" binding:"required,min=1"`
 }
 
-func (server *Server) getAccount(ctx *gin.Context) {
+func (server *Server) getAccount(c *gin.Context) {
 	var req getAccountRequest
-	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+	if err := c.ShouldBindUri(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
-	account, err := server.store.GetAccount(ctx, req.ID)
+	account, err := server.store.GetAccount(c, req.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			c.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		c.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-	ctx.JSON(http.StatusOK, account)
+
+	authPayload := c.MustGet(authorizationPayloadKey).(*token.Payload)
+	if account.Owner != authPayload.Username {
+		err := errors.New("not authorized to access this account")
+		c.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+	c.JSON(http.StatusOK, account)
 }
 
 type listAccountRequest struct {
@@ -73,7 +82,9 @@ func (server *Server) listAccounts(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 	arg := db.ListAccountsParams{
+		Owner:  authPayload.Username,
 		Limit:  req.PageSize,
 		Offset: (req.PageID - 1) * req.PageSize,
 	}
