@@ -56,16 +56,12 @@ type TransferTxResult struct {
 	ToEntry     Entry
 }
 
-var txKey = struct{}{}
-
 func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
 	var result TransferTxResult
 
-	txName := ctx.Value(txKey)
-
 	err := store.execTx(ctx, func(q *Queries) error {
 		var err error
-		fmt.Println(txName, "create transfer")
+
 		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
 			FromAccountID: arg.FromAccountID,
 			ToAccountID:   arg.ToAccountID,
