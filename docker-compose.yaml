@@ -10,9 +10,12 @@ services:
       - "5433:5432"
 
   api:
+    # 使用本地构建（开发时）
     build:
        context: .
        dockerfile: Dockerfile
+    # 或使用 ECR 镜像（测试生产镜像时，取消下面注释）
+    # image: 385845594091.dkr.ecr.us-east-1.amazonaws.com/bank:a637168e8f8f122ea2237574f308fa3a7ca0ef4c
     ports:
       - "8080:8080"
     environment:

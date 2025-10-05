@@ -6,6 +6,7 @@ echo "waiting for postgres to start..."
 /app/wait-for.sh postgres:5432 --timeout=60 -- echo "postgres is up"
 
 echo "run db migration"
+source /app/app.env
 /app/migrate -path /app/migration -database "$DB_SOURCE" -verbose up
 
 echo "start the app"
