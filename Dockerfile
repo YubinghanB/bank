@@ -6,7 +6,9 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build  -ldflags="-w -s" -o main main.go
 RUN apk add curl
-RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-amd64.tar.gz | tar xvz
+# 使用 Docker Buildx 的内置变量 TARGETARCH
+ARG TARGETARCH
+RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-${TARGETARCH:-amd64}.tar.gz | tar xvz
 
 
 ## Run Stage
