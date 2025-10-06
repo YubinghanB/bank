@@ -2,6 +2,12 @@
 
 set -e ##任何命令失败立即退出
 
+# 如果 DB_SOURCE 环境变量不存在，从 app.env 加载
+if [ -z "$DB_SOURCE" ] && [ -f /app/app.env ]; then
+    echo "Loading DB_SOURCE from /app/app.env..."
+    export $(grep -v '^#' /app/app.env | xargs)
+fi
+
 # 从 DB_SOURCE 提取主机名和端口
 DB_HOST=$(echo "$DB_SOURCE" | sed -n 's|.*@\([^:]*\):[0-9]*.*|\1|p')
 DB_PORT=$(echo "$DB_SOURCE" | sed -n 's|.*@[^:]*:\([0-9]*\).*|\1|p')
