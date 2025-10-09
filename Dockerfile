@@ -5,22 +5,16 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build  -ldflags="-w -s" -o main main.go
-RUN apk add curl
-# 使用 Docker Buildx 的内置变量 TARGETARCH
-ARG TARGETARCH
-RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-${TARGETARCH:-amd64}.tar.gz | tar xvz
-
 
 ## Run Stage
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /app/main .
-COPY --from=builder /app/migrate ./migrate
 COPY app.env .
-COPY db/migration ./migration
+COPY db/migration ./db/migration
 COPY start.sh .
 COPY wait-for.sh .
 RUN chmod +x /app/start.sh /app/wait-for.sh
 
-EXPOSE 8080
+EXPOSE 8080 9090
 CMD ["/app/start.sh"]
